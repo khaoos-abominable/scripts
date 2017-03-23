@@ -1,0 +1,14 @@
+#!/bin/bash
+# uses kdiff3 to merge two or three files
+# if 4th file provided as an argument, then it is used as output for merge operation
+
+if [ $# -eq 3 ]; then
+  kdiff3 -m "$1" "$2" "$3"
+elif [ $# -eq 4 ]; then
+  kdiff3 -m -o "$4" "$1" "$2" "$3"
+elif [ $# -eq 2 ]; then
+  kdiff3 -m "$1" "$2"
+else
+  echo "Two, three or four files must be provided fo merge"
+  exit 1
+fi
