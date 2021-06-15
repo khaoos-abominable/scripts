@@ -2,4 +2,4 @@
 # searches subdirectories in the current directory with name containing the given argument
 # usage finddir PartOfTheDirName
 
-find -name *$1* -type d
+find . -name "*$1*" -type d
