@@ -1,0 +1,957 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<displays>
+<display id="299783b5-017d-1000-8003-0a1f81bd1ea5" type="" style="Table" enable="true">
+	<name><![CDATA[Sessions]]></name>
+	<description><![CDATA[Sessions]]></description>
+	<tooltip><![CDATA[Sessions]]></tooltip>
+	<drillclass><![CDATA[]]></drillclass>
+	<CustomValues>
+		<TYPE><![CDATA[horizontal]]></TYPE>
+	</CustomValues>
+	<query>
+		<sql><![CDATA[select  
+ case
+  when (s.sid = ps.qcsid) then (
+      select 
+        count(*) 
+      from 
+        gv$px_session ps1 
+      where 
+        ps1.qcsid = s.sid 
+        and ps1.qcinst_id = s.inst_id      
+        and (ps1.sid <> s.sid or ps1.inst_id <> s.inst_id)
+    )
+  else null
+ end as degree,
+ to_char(ps.qcsid) || nvl2(ps.qcsid, '@' || nvl(ps.qcinst_id, s.inst_id), '') as qc_session_id,
+ s.sid,
+ s.serial#,
+ s.inst_id,
+ s.type,
+ s.status, 
+ s.username,  
+ s.osuser,
+ s.machine,  
+ s.program,
+ s.logon_time,
+ s.last_call_et,
+ s.resource_consumer_group,
+ s.sql_id,
+ s.sql_child_number,
+ s.sql_exec_id,
+ s.sql_exec_start,
+ s.prev_sql_id,    
+ s.event, 
+ s.wait_class,
+ s.wait_time,
+ s.seconds_in_wait,
+ s.state,
+ s.wait_time_micro,
+ s.row_wait_obj#,
+ s.blocking_session_status,
+ s.blocking_session,
+ s.final_blocking_session_status,
+ s.final_blocking_session, 
+ s.pdml_status,
+ s.pddl_status,
+ s.pq_status,
+ s.module,
+ s.action 
+from 
+  gv$session s
+  left join gv$px_session ps
+   on ps.sid = s.sid
+   and ps.inst_id = s.inst_id
+   and ps.serial# = s.serial#
+where  
+  (:ONLY_ACTIVE_SESSION = 0 or s.status = 'ACTIVE')
+  and (:ONLY_USER_SESSION = 0 or s.type = 'USER')
+  and (:USERNAME is null or lower(s.username) like lower(:USERNAME))
+  and (:OSUSER is null or lower(s.osuser) like lower(:OSUSER))
+order by
+  ps.qcsid nulls last,
+  case
+    when (s.sid = ps.qcsid) then 0
+    else 1
+  end,
+  s.sid,
+  s.inst_id]]></sql>
+		<binds>
+			<bind id="ONLY_ACTIVE_SESSION">
+				<prompt><![CDATA[ONLY_ACTIVE_SESSION]]></prompt>
+				<tooltip><![CDATA[ONLY_ACTIVE_SESSION]]></tooltip>
+				<value><![CDATA[NULL_VALUE]]></value>
+				<bracket><![CDATA[null]]></bracket>
+			</bind>
+			<bind id="ONLY_USER_SESSION">
+				<prompt><![CDATA[ONLY_USER_SESSION]]></prompt>
+				<tooltip><![CDATA[ONLY_USER_SESSION]]></tooltip>
+				<value><![CDATA[NULL_VALUE]]></value>
+				<bracket><![CDATA[null]]></bracket>
+			</bind>
+			<bind id="USERNAME">
+				<prompt><![CDATA[USERNAME]]></prompt>
+				<tooltip><![CDATA[USERNAME]]></tooltip>
+				<value><![CDATA[NULL_VALUE]]></value>
+				<bracket><![CDATA[null]]></bracket>
+			</bind>
+			<bind id="OSUSER">
+				<prompt><![CDATA[OSUSER]]></prompt>
+				<tooltip><![CDATA[OSUSER]]></tooltip>
+				<value><![CDATA[NULL_VALUE]]></value>
+				<bracket><![CDATA[null]]></bracket>
+			</bind>
+		</binds>
+	</query>
+	<display id="null" type="" style="Script" enable="true">
+		<name><![CDATA[SQL]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[set long 100000
+set pagesize 0
+set linesize 200
+
+select
+  s.sql_fulltext
+from 
+  gv$sql s
+where
+  s.sql_id = :SQL_ID
+  and s.inst_id = :INST_ID
+  and rownum = 1]]></sql>
+			<binds>
+				<bind id="SQL_ID">
+					<prompt><![CDATA[SQL_ID]]></prompt>
+					<tooltip><![CDATA[SQL_ID]]></tooltip>
+					<value><![CDATA[NULL_VALUE]]></value>
+					<bracket><![CDATA[null]]></bracket>
+				</bind>
+				<bind id="INST_ID">
+					<prompt><![CDATA[INST_ID]]></prompt>
+					<tooltip><![CDATA[INST_ID]]></tooltip>
+					<value><![CDATA[NULL_VALUE]]></value>
+					<bracket><![CDATA[null]]></bracket>
+				</bind>
+			</binds>
+		</query>
+	</display>
+	<display id="null" type="" style="Script" enable="true">
+		<name><![CDATA[Plan]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[set linesize 300
+set pagesize 0
+select * from table(dbms_xplan.display_cursor(:SQL_ID, :SQL_CHILD_NUMBER, 'ALL -PROJECTION +METRICS'))]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Waits]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select 
+ sw.sid as sid,
+ sw.inst_id,
+ sw.seq#,
+ sw.event,
+ sw.state, 
+ sw.wait_time,
+ sw.seconds_in_wait, 
+ sw.wait_time_micro,
+ sw.wait_class,
+ sw.p1text,
+ sw.p1,
+ sw.p2text,
+ sw.p2,
+ sw.p3text,
+ sw.p3, 
+ sw.time_remaining_micro,
+ sw.time_since_last_wait_micro
+from 
+ gv$session_wait sw
+where
+ (sw.sid, sw.inst_id) in (
+  select :SID sid, :INST_ID inst_id from dual 
+  union all
+  select 
+    ps.sid,
+    ps.inst_id
+  from 
+    gv$px_session ps 
+  where 
+    ps.qcsid = :SID
+    and ps.qcinst_id = :INST_ID
+    and (ps.qcsid <> ps.sid or ps.qcinst_id <> ps.inst_id)
+ )
+order by
+  case
+    when(sw.sid = :SID and sw.inst_id = :INST_ID) then 0
+    else 1
+  end,  
+  sw.sid]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Last Waits]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select 
+ sw.seq#,
+ sw.event,  
+ sw.wait_time,
+ sw.wait_time_micro,
+ sw.time_since_last_wait_micro,
+ sw.p1text,
+ sw.p1,
+ sw.p2text,
+ sw.p2,
+ sw.p3text,
+ sw.p3
+from 
+ gv$session_wait_history sw
+where
+  sw.sid = :SID
+  and sw.inst_id = :INST_ID
+order by
+  sw.seq#]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Long Ops]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select 
+ l.sid,
+ l.inst_id,
+ l.opname,
+ l.target,
+ l.target_desc,
+ round(decode(l.totalwork, 0, 1, l.sofar/l.totalwork) * 100, 1) pct_done,
+ l.sofar,
+ l.totalwork,
+ l.units,
+ l.time_remaining,
+ l.elapsed_seconds,
+ l.start_time,
+ l.last_update_time,
+ l.sql_plan_line_id,
+ l.sql_plan_operation,
+ l.sql_plan_options,
+ l.message
+from gv$session_longops l
+where 
+ (l.sid, l.inst_id) in (
+  select 
+    :SID as sid,
+    :INST_ID as inst_id 
+  from 
+    dual
+  union all
+  select 
+    ps.sid,
+    ps.inst_id
+  from 
+    gv$px_session ps 
+  where 
+    ps.qcsid = :SID 
+    and ps.qcinst_id = :INST_ID
+    and (ps.qcsid <> ps.sid or ps.qcinst_id <> ps.inst_id)
+ )
+order by
+  l.time_remaining desc nulls last,
+  l.start_time desc,
+  case
+    when (l.sid = :SID and l.inst_id = :INST_ID) then 0
+    else 1
+  end,  
+  l.inst_id,
+  l.sid]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Transactions]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select 
+  s.sid,
+  s.inst_id,
+  to_char(t.xidusn) || to_char(t.xidslot) || to_char(t.xidsqn) as transaction_id,
+  t.recursive,
+  t.noundo,
+  t.used_ublk as undo_blks,
+  t.used_urec as undo_recs,
+  t.log_io as logical_reads,
+  t.phy_io as physical_reads,
+  t.cr_get as current_gets,
+  t.cr_change as current_changes
+from 
+  gv$session s
+  join gv$transaction t
+    on t.ses_addr = s.saddr
+    and t.inst_id = s.inst_id
+where
+  (s.sid, s.inst_id) in (
+    select :SID as sid, :INST_ID as inst_id from dual 
+    union all
+    select ps.sid, ps.inst_id
+    from gv$px_session ps 
+    where ps.qcsid = :SID and ps.qcinst_id = :INST_ID 
+    and not (ps.qcsid = ps.sid and ps.qcinst_id = ps.inst_id)
+  )
+order by
+  case
+    when (s.sid = :SID and s.inst_id = :INST_ID) then 0
+    else 1
+  end,
+  s.sid,
+  s.inst_id]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[SQL Workarea]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select 
+  a.SQL_ID,
+  a.OPERATION_TYPE,
+  a.OPERATION_ID,
+  a.POLICY,
+  a.QCSID,
+  a.ACTIVE_TIME,
+  a.WORK_AREA_SIZE,
+  a.EXPECTED_SIZE,
+  a.ACTUAL_MEM_USED,
+  a.MAX_MEM_USED,
+  a.NUMBER_PASSES,
+  a.TEMPSEG_SIZE,
+  a.TABLESPACE  
+from 
+  gv$sql_workarea_active a
+where
+  a.sql_id = :SQL_ID
+  and a.sql_exec_id = :SQL_EXEC_ID]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Temp Usage]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select
+  s.sid,
+  s.inst_id,  
+  t.tablespace,
+  t.segtype,
+  (sum(t.blocks) * dt.block_size) / power(1024, 2) mb,  
+  (sum(sum(t.blocks) * dt.block_size) over (partition by s.sid)) / power(1024, 2) as session_mb, 
+  (sum(sum(t.blocks) * dt.block_size) over ()) / power(1024, 2) as overall_mb
+from 
+  gv$tempseg_usage t
+  join gv$session s
+    on s.saddr = t.session_addr
+    and s.inst_id = t.inst_id
+  join dba_tablespaces dt
+    on dt.tablespace_name = t.tablespace
+where
+  (s.sid, s.inst_id) in (
+    select :SID as sid, :INST_ID as inst_id from dual 
+    union all
+    select ps.sid, ps.inst_id
+    from gv$px_session ps 
+    where ps.qcsid = :SID and ps.qcinst_id = :INST_ID 
+    and not (ps.qcsid = ps.sid and ps.qcinst_id = ps.inst_id)
+  )
+group by
+  s.sid,
+  s.inst_id,
+  dt.block_size,
+  t.tablespace,
+  t.segtype
+order by
+  case
+    when (s.sid = :SID and s.inst_id = :INST_ID) then 0
+    else 1
+  end,
+  s.sid,
+  s.inst_id]]></sql>
+		</query>
+	</display>
+		<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Events]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select   
+  evn.event,
+  evn.total_waits,
+  evn.total_timeouts,
+  evn.time_waited,
+  evn.average_wait,
+  evn.max_wait,
+  evn.time_waited_micro,
+  evn.wait_class
+from
+   gv$session_event evn
+where
+  evn.sid = :SID
+  and evn.inst_id = :INST_ID
+order by
+  evn.time_waited desc]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Slave Events]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select 
+  evn.sid,
+  evn.inst_id,
+  evn.event,
+  evn.total_waits,
+  evn.total_timeouts,
+  evn.time_waited,
+  evn.average_wait,
+  evn.max_wait,
+  evn.time_waited_micro,
+  evn.wait_class
+from
+   gv$session_event evn
+where
+  (evn.sid, evn.inst_id) in (    
+    select ps.sid, ps.inst_id
+    from gv$px_session ps 
+    where ps.qcsid = :SID and ps.qcinst_id = :INST_ID 
+    and not (ps.qcsid = ps.sid and ps.qcinst_id = ps.inst_id)
+  )
+order by   
+  evn.sid,
+  evn.inst_id,
+  evn.time_waited desc]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Waiters/Blockers]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[with w_my_sessions as (
+  select cast(:SID as number) as sid from dual 
+  union all
+  select ps.sid
+  from gv$px_session ps 
+  where ps.qcsid = :SID and ps.qcinst_id = :INST_ID 
+  and not (ps.qcsid = ps.sid and ps.qcinst_id = ps.inst_id) 
+)
+select 
+  case
+    when (w.waiting_session in (select sid from w_my_sessions)) then 'WAITING'
+    else 'BLOCKING'
+  end as type,
+  w.*
+from 
+  dba_waiters w
+where
+  w.waiting_session in (select sid from w_my_sessions)
+  or w.holding_session in (select sid from w_my_sessions)]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Script" enable="true">
+		<name><![CDATA[SQL Monitor]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[set long 1000000
+set longchunksize 1000000
+set pagesize 0
+set linesize 300
+
+select 
+  dbms_sqltune.report_sql_monitor(
+    sql_id => :SQL_ID,
+    sql_exec_id => :SQL_EXEC_ID,
+    session_id => :SID,
+    session_serial => :SERIAL#,
+    inst_id => :INST_ID,    
+    type => 'TEXT',
+    report_level => 'ALL'
+  ) AS report
+from 
+  dual;]]></sql>
+		</query>
+	</display>
+		<display id="null" type="" style="Script" enable="true">
+		<name><![CDATA[Ash (Session)]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[set header off
+set pagesize 0
+set linesize 400
+
+select 
+  *
+from 
+   table(
+     dbms_workload_repository.ash_report_text(
+       l_dbid => (select dbid from v$database),
+       l_inst_num => :INST_ID,        
+       l_btime => greatest(
+                    sysdate - 1/24,
+                    (
+                      -- В скрипт нельзя передавать бинды типа DATE, поэтому достаем запросом
+                      select logon_time 
+                      from gv$session s 
+                      where s.sid = :SID 
+                        and s.serial# = :SERIAL# 
+                        and s.inst_id = :INST_ID
+                    )
+                  ),
+       l_etime => sysdate,
+       l_sid => :SID,
+       -- 1 - memory (ASH), 2 - disk (AWR), 0 - both
+       l_data_src => 1
+     )
+   );]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Script" enable="true">
+		<name><![CDATA[Ash (SQL)]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[set header off
+set pagesize 0
+set linesize 400
+
+select 
+  *
+from 
+   table(
+     dbms_workload_repository.ash_report_text(
+       l_dbid => (select dbid from v$database),
+       l_inst_num => :INST_ID,
+       l_btime => greatest(
+                    sysdate - 1/24,
+                    -- В скрипт нельзя передавать бинды типа DATE, поэтому достаем запросом
+                    (
+                      select sql_exec_start
+                       from gv$session s 
+                       where s.sid = :SID 
+                         and s.serial# = :SERIAL#
+                         and s.inst_id = :INST_ID
+                         and s.sql_id = :SQL_ID
+                    )
+                  ),       
+       l_etime => sysdate,
+       l_sid => :SID,
+       l_sql_id => :SQL_ID,
+       -- 1 - memory (ASH), 2 - disk (AWR), 0 - both
+       l_data_src => 1
+     )
+   );]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Open Cursors]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select * from gv$open_cursor 
+where sid = :SID and inst_id = :INST_ID]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Stats]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select  
+  names.name,   
+  stats.value,
+  stats.statistic#
+from 
+  gv$sesstat stats, 
+  gv$statname names
+where 
+  stats.sid = :SID
+  and stats.inst_id = :INST_ID  
+  and names.statistic# = stats.Statistic#
+  and names.inst_id = stats.inst_id
+  and stats.value <> 0
+order by  
+  names.name]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Slave Stats]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select 
+  stats.sid,
+  stats.inst_id,
+  names.name,   
+  stats.value,
+  stats.statistic#
+from 
+  gv$sesstat stats, 
+  gv$statname names
+where 
+  (stats.sid, stats.inst_id) in (    
+    select
+      ps.sid,
+      ps.inst_id 
+    from 
+      gv$px_session ps 
+    where
+      ps.qcsid = :SID      
+      and ps.qcinst_id = :INST_ID
+      and (ps.qcsid <> ps.sid or ps.qcinst_id <> ps.inst_id)
+  )
+  and stats.value <> 0
+  and names.statistic# = stats.Statistic#
+  and names.inst_id = stats.inst_id
+order by
+  names.name,
+  stats.inst_id,
+  stats.sid]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Time Model]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select 
+  s.sid,
+  s.inst_id,
+  s.stat_name,
+  s.value,
+  s.stat_id
+from 
+  gv$sess_time_model s
+where
+  s.value <> 0
+  and (s.sid, s.inst_id) in (
+    select :SID as sid, :INST_ID as inst_id from dual 
+    union all
+    select ps.sid, ps.inst_id
+    from gv$px_session ps 
+    where ps.qcsid = :SID and ps.qcinst_id = :INST_ID 
+    and not (ps.qcsid = ps.sid and ps.qcinst_id = ps.inst_id)
+  )
+order by
+  case
+    when (s.sid = :SID and s.inst_id = :INST_ID) then 0
+    else 1
+  end,
+  s.sid,
+  s.inst_id,
+  s.stat_name]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Metric]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select 
+  s.session_id as sid,  
+  s.inst_id,
+  s.begin_time,
+  s.end_time,
+  s.intsize_csec,
+  s.cpu,
+  s.physical_reads,
+  s.logical_reads,
+  s.pga_memory,
+  s.hard_parses,
+  s.soft_parses,
+  s.physical_read_pct,
+  s.logical_read_pct  
+from 
+  gv$sessmetric s
+where
+  (s.session_id, s.inst_id) in (
+    select :SID as sid, :INST_ID as inst_id from dual 
+    union all
+    select ps.sid, ps.inst_id
+    from gv$px_session ps 
+    where ps.qcsid = :SID and ps.qcinst_id = :INST_ID 
+    and not (ps.qcsid = ps.sid and ps.qcinst_id = ps.inst_id)
+  )
+order by
+  case
+    when (s.session_id = :SID and s.inst_id = :INST_ID) then 0
+    else 1
+  end,
+  s.session_id,
+  s.inst_id]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[I/O]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select 
+  s.sid,
+  s.inst_id,
+  s.block_gets,
+  s.consistent_gets,
+  s.physical_reads,
+  s.block_changes,
+  s.consistent_changes,
+  s.optimized_physical_reads
+from 
+  gv$sess_io s
+where
+  (s.sid, s.inst_id) in (
+    select :SID as sid, :INST_ID as inst_id from dual 
+    union all
+    select ps.sid, ps.inst_id
+    from gv$px_session ps 
+    where ps.qcsid = :SID and ps.qcinst_id = :INST_ID 
+    and not (ps.qcsid = ps.sid and ps.qcinst_id = ps.inst_id)
+  )
+order by
+  case
+    when (s.sid = :SID and s.inst_id = :INST_ID) then 0
+    else 1
+  end,
+  s.sid,
+  s.inst_id]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Locks]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select
+  l.type,
+  lt.name as type_name,
+  l.id1,
+  l.id2,  
+  decode(l.lmode,
+    0, 'None',
+    1, 'Null',
+    2, 'Row-S (SS)',
+    3, 'Row-X (SX)',
+    4, 'Share',
+    5, 'S/Row-X (SSX)',
+    6, 'Exclusive',
+    'Mode ' || to_char(lmode)
+  ) as mode_held,
+  decode(l.request,
+    0, 'None',
+    1, 'Null',
+    2, 'Row-S (SS)',
+    3, 'Row-X (SX)',
+    4, 'Share',
+    5, 'S/Row-X (SSX)',
+    6, 'Exclusive',
+    'Mode ' || to_char(lmode)
+  ) as mode_requested,         
+   l.ctime as convert_time,
+   decode(
+     l.block,
+     0, 'Not Blocking',  /* Not blocking any other processes */
+     1, 'Blocking',      /* This lock blocks other processes */
+     2, 'Global',        /* This lock is global, so we can't tell */
+     to_char(block)
+  ) as blocking_others,  
+  o.owner as object_owner,
+  o.object_name,
+  lt.id1_tag,
+  lt.id2_tag
+from  
+  gv$lock l
+  join v$lock_type lt
+    on lt.type = l.type    
+  left join dba_objects o
+    on o.object_id = DECODE(lt.id1_tag, 'object #', l.id1)
+where 
+  l.sid = :SID
+  and l.inst_id = :INST_ID]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Server]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select 
+  s.sid,
+  s.serial#,
+  s.inst_id,
+  s.username,
+  s.type,
+  s.status,
+  s.server,
+  s.logon_time,  
+  s.process,
+  p.spid,
+  p.traceid
+from 
+  gv$session s, gv$process p
+where 
+  s.sid = :SID and s.serial# = :SERIAL and s.inst_id = :INST_ID
+  and s.paddr = p.addr and s.inst_id = p.inst_id]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Client]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select
+  osuser,
+  machine,
+  terminal,
+  client_info,
+  client_identifier
+from 
+  gv$session
+where 
+  sid = :SID and serial# = :SERIAL and inst_id = :INST_ID]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Table" enable="true">
+		<name><![CDATA[Application]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+			<TYPE><![CDATA[horizontal]]></TYPE>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[select
+  last_call_et,
+  program,
+  module,
+  action
+from 
+  gv$session 
+where 
+  sid = :SID and inst_id = :INST_ID]]></sql>
+		</query>
+	</display>
+	<display id="null" type="" style="Script" enable="true">
+		<name><![CDATA[Prev SQL]]></name>
+		<description><![CDATA[]]></description>
+		<tooltip><![CDATA[]]></tooltip>
+		<drillclass><![CDATA[]]></drillclass>
+		<CustomValues>
+		</CustomValues>
+		<query>
+			<sql><![CDATA[set long 100000
+set pagesize 0
+set linesize 200
+
+select
+  s.sql_fulltext
+from 
+  gv$sql s
+where
+  s.sql_id = :PREV_SQL_ID
+  and s.inst_id = :INST_ID
+  and rownum = 1]]></sql>
+		</query>
+	</display>
+</display>
+</displays>
